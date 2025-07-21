@@ -1,20 +1,3 @@
-%
-% This code is based on the paper entitled
-% "An Energy-based Method for Orientation Correction
-% of EMG Bracelet Sensors in Hand Gesture Recognition Systems"
-% by Victor Hugo Vimos T.
-%
-% Before using this code, please read the file README
-%
-% *Victor Hugo Vimos T / victor.vimos@epn.edu.ec
-%  Escuela Politecnica Nacional
-%  (C) Copyright Victor Hugo Vimos T.
-%  2020
-
-%-----------------------------------------
-% Set Path folders if the code does not run
-%------------------------------------------
-
 
 exitLoop      = false;
 syncro        = 0;
@@ -43,22 +26,16 @@ while exitLoop~=true
             directory = 'Data\General\testing';
 
             disp('     Elija la carpeta que evaluara.');
-            disp('1. Mes 0 Antes');
-            disp('2. Mes 0 Nuevo');
-            disp('3. Mes 1 ');
-            disp('4. Mes 2 ');
-            disp('5. Mes 3 ');
+            disp('1. Mes 1 ');
+            disp('2. Mes 2 ');
+            disp('3. Mes 3 ');
             option=input('ingrese la opcion ');
             switch option
                 case 1
-                    directory = 'Data\General\Mes 0 Antes\testing';
-                case 2
-                    directory = 'Data\General\Mes 0 Nuevo\testing';
-                case 3
                     directory = 'Data\General\Mes 1\testing';
-                case 4
+                case 2
                     directory = 'Data\General\Mes 2\testing';
-                case 5
+                case 3
                     directory = 'Data\General\Mes 3\testing';
             end
 
@@ -67,14 +44,32 @@ while exitLoop~=true
             disp("numero de repeticiones por Gesto");
             disp(numRepGestureTesting);
 
-            model = "svm";
+            disp("");
+            disp("Seleccione el modelo que evaluara")
+            disp('1. ANN ');
+            disp('2. kNN ');
+            disp('3. SVM ');
+            modelOption = input('ingrese la opcion ');
+            switch modelOption
+                case 1
+                    model = "ann";
+                case 2
+                    model = "knn";
+                case 3
+                    model = "svm";
+            end
+
+            % cambiar manualmente "load()" y "responseValues" al mes y modelo que se quiere
+            % evaluar, en "Model-Responses/" estan algunos resultados.
+
+            
             if model =="ann"
                 %%%%%% Para ANN
                 % Cargar archivo original
                 load('responsesMes3ANN.mat');  % contiene la variable 'responses'
                 %%%%% Responses%%%%%%% es el resultado del ANN
-                % Inicializar nueva estructura
-                response.training = struct();  % si no hay datos de entrenamiento, queda vacío
+
+                response.training = struct(); 
                 response.testing = struct();
                 userNames = fieldnames(responses.testing);
                 disp(userNames)
@@ -111,7 +106,7 @@ while exitLoop~=true
             %%Cambiar para evaluar los segmentos
             type = 'testing';
             %%%%%% Cambiar el mes
-            mesSeleccionado = input('¿Qué mes desea evaluar? (Ingrese un número: 1, 2, 3, etc.): ');
+            mesSeleccionado = input('¿Qué mes desea evaluar? (Ingrese un número: 1, 2 o 3): ');
 
             Evaluation(directory, responseValues, type, mesSeleccionado,model);
 
