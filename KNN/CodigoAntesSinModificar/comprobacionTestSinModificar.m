@@ -1,0 +1,493 @@
+% Script to measure accuracy of the classification system based on the
+% testing routine. Setting parameters can be changed so a new clasificator
+% can be tested.
+
+addpath(genpath(pwd));
+
+clear all
+clc
+load('usuarios.mat'); 
+% load('resultadosTodos.mat'); 
+
+
+
+% Variables in the training routine
+numTry=50;
+%nameGestures={'WaveIn';'WaveOut';'Fist';'Open';'Pinch';'noGesto'};
+nameGestures={'Fist';'Open';'Pinch';'WaveIn';'WaveOut';'noGesto'};
+nameGesturesFormated = {'fist', 'open', 'pinch', 'waveIn', 'waveOut', 'noGesture'};
+numGestures=6;
+numRepTest=50;
+
+
+
+
+% Setting classification parameters
+probabilidadkNNUmbral=0.8;
+ordenFiltro=4;
+freqFiltro=0.05;
+[Fb, Fa] = butter(ordenFiltro, freqFiltro, 'low'); % creating filter
+windowTime=1;
+kNN=5;
+timeShiftWindow=0.2;
+
+
+%desplazamiento de ventana
+freq=200; %Hz
+shift = freq * timeShiftWindow; 
+
+%% sabiendo que las ventanas se generan desde el primer instante de la señal
+%% es decir desde el punto 1.
+startPoint = 1;
+
+% Gesture detection method
+relaxedDetectionUmbral=0.1;  % percentage
+gestureDetectionMethodFlag=0; % 1 for use this method, 0 for ignoring
+
+
+
+% inicializando variables
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+valorRealTotal=[]; % vector de valores reales de todas las pruebas.
+resultadosTotal=[];% vector de resultados obtenidos de todas las pruebas.
+tClassificationTotal=[]; % vector con los tiempos de clasificación.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+logResultadosCrudosCelda=cell(numGestures,numRepTest,length(usuarios.nombres)); % celda obteniendo los resultados crudos de todos los usuarios.
+logResultadosFiltradosCelda=cell(numGestures,numRepTest,length(usuarios.nombres)); % celda obteniendo los resultados finales de todos los usuarios.
+histogramaNoGesto=[(0:5)' zeros(6,1)]; % variable para la prueba del no gesto
+
+
+% for kUsuarios=length(usuarios.nombres)-5:length(usuarios.nombres)
+
+%usuarios.nombres = ["user10", "user11"];
+%usuarios.nombres = strcat('user', string(1:64)');
+%%   USUARIOS VALIDOS
+% %usuarios.nombres = ["user" + string([ ...
+%         1, 10, 11, 12, 13, 15, 16, 18, ...
+%             33, 34, 35, 37, 38, 39, 40, 41, ...
+%                 42, 43, 44, 45, 46, 47, 49, 51, ...
+%                     53, 55, 56, 57, 58, 59, 61, 62 ...
+%                     ])];
+
+usuarios.nombres = ["user" + string([ ...
+        1, 10, 11, 12, 13, 15, 16, 18, ...
+            33, 34, 35, 37, 38, 39, 40, 41, ...
+                42, 43, 44, 45])];
+
+disp(usuarios.nombres)
+response = struct();
+
+if isfile('responsesKNN.mat')
+    load('responsesKNN.mat'); % carga la estructura 'response' previa
+else
+    response = struct(); % inicializa si no existe
+end
+
+
+for kUsuarios=1:length(usuarios.nombres)
+
+    % Loop per user0
+    nameUser=usuarios.nombres{kUsuarios};
+    [database,dMax]= databaseConstruction(nameUser,0,Fb,Fa,numTry,numGestures,nameGestures);
+    
+    
+    resultadosPruebaPerUser=[];
+    valorRealPruebaPerUser=[];
+    
+    
+    %%-----Creacion de responses
+    vectorOfLabels = cell(numGestures * numRepTest,1);
+    class = cell(numGestures * numRepTest,1);
+    vectorOfProcessingTime = cell(numGestures * numRepTest,1);
+    vectorOfTimePoints = cell(numGestures * numRepTest,1);
+    
+    
+    %%-----Creacion de responses
+    
+    %% Prueba de los gestos
+    % Ya que el no gesto se analiza al final la asignacion de indices
+    % empieza desde 8
+    idx = numRepTest+1;
+    % El no gesto son los primeros gestos.
+    idxNoGesto = 1;
+
+    %%Verificar si existen datos para test de un usuario
+    firstGestureFileName = [nameUser 'PaperPruebas' char(nameGestures{1}) '.mat'];
+
+    if ~exist(firstGestureFileName, 'file')
+        fprintf(2, 'Advertencia: El archivo inicial para el usuario %s (%s) no se encontró. Saltando a la siguiente usuario.\n', nameUser, firstGestureFileName);
+        continue; % Salta el resto del código para este usuario y pasa al siguiente kUsuarios
+    end
+    
+    for kGesture= 1:numGestures
+        
+        % Loop por gesto
+        load([nameUser 'PaperPruebas' char(nameGestures{kGesture}) '.mat']);
+        histogramaGestosPerUser=[(0:5)' zeros(6,1)];
+        
+        
+        disp(nameGestures{kGesture});
+        
+        for kRutina=1:numRepTest
+
+            %%---Creacion de responses
+            
+            %%-----Creacion de responses
+            
+            
+            % Loop por repetición del test.
+            %disp(kRutina);
+            
+            %% Clasificación
+            completeUnknownSignal=dataGesture.emg{kRutina};
+            [logResultadosFiltrados,tClassificationVector,histogramaGestos,logResultadosCrudos]...
+                = recognitionPruebasPaperSinModificarAntes(completeUnknownSignal,database,windowTime,Fb,Fa,timeShiftWindow,kNN,probabilidadkNNUmbral);
+            
+            % gestosPorVentana = logResultadosFiltrados(:,1)';
+            % disp('Gesto predicho por cada ventana (filtrado):');
+            % disp(gestosPorVentana);
+            gestosCrudosPorVentana = logResultadosCrudos(:,1)';
+            %disp('Todos los gestos predichos por ventana (sin limpiar ni filtrar):');
+            %disp(gestosCrudosPorVentana);
+            
+            etiquetasfiltradas = filtro_postprocesamiento(gestosCrudosPorVentana);
+            %disp(etiquetasfiltradas);
+            %disp(gestosCrudosPorVentana);
+            
+
+           
+            %%---Creacion de responses
+            %Convertir ventanas de enteros a etiquetas
+            etiquetasCategorical = ventanasNumericasACategorical(etiquetasfiltradas,nameGesturesFormated);
+            
+            if nameGestures{kGesture} == "noGesto"
+                disp("Idx de no gesto");
+                disp(idxNoGesto)
+                %% para el vector of labels
+                vectorOfLabels{idxNoGesto} = etiquetasCategorical;
+                %% para el vector of classification time
+                tClasificacionVector_fila = tClassificationVector.';
+                vectorOfProcessingTime{idxNoGesto} = tClasificacionVector_fila;
+                %% para el vectorOfTimePoints
+                numeroVentanas = numel(gestosCrudosPorVentana);
+                fullVector = startPoint + (0:numeroVentanas-1)*shift;
+                vectorOfTimePoints{idxNoGesto} = fullVector;
+
+                
+
+            else
+                fprintf('Idx = %d ; Gesto: %s', idx, nameGestures{kGesture} );
+                fprintf('Gesto predicho (mayoría): %s\n', string(mode(etiquetasCategorical)));
+                vectorOfLabels{idx} = etiquetasCategorical;
+                vectorOfLabels{idx} = etiquetasCategorical;
+                tClasificacionVector_fila = tClassificationVector.';
+                vectorOfProcessingTime{idx} = tClasificacionVector_fila;
+                %% vector of time points
+                numeroVentanas = numel(gestosCrudosPorVentana);
+                fullVector = startPoint + (0:numeroVentanas-1)*shift;
+                vectorOfTimePoints{idx} = fullVector;
+
+                %idx = idx + 1;
+            end
+
+            
+            %%-----Creacion de responses
+            
+            % Log results
+            logResultadosCrudosCelda{kGesture,kRutina,kUsuarios}=logResultadosCrudos;
+            logResultadosFiltradosCelda{kGesture,kRutina,kUsuarios}=logResultadosFiltrados;
+            tClassificationTotal=[tClassificationTotal;tClassificationVector];
+            
+            % Obteninedo histograma general
+            histogramaGestos(1,2) = 0; % exclutendo todas los resultados nulos
+            
+            
+            
+            %disp("Entrando al histo")
+            %disp(histogramaGestos)
+
+            % % Análisis del histograma resultante
+            % if sum(histogramaGestos(2:end,2))==1 && histogramaGestos(kGesture+1,2)==1 % (condición 1: un solo resultado obtenido) y (condición dos: resultado obtenido es el correcto)
+            %     % Detección correcta, pasa el valor histogramaGestos=histogramaGestos
+            % 
+            % 
+            % elseif histogramaGestos(:,2:end)==0 % sistema de clasificación no detectó ni un solo gesto
+            % 
+            %     histogramaGestos(1,2)=1;
+            % 
+            % 
+            % elseif sum(histogramaGestos((histogramaGestos(:,1)~=kGesture),:))~=0 % Detección de otros elementos
+            %     % se pasa el resultado tal cual, es posible que devuelva
+            %     % más de un resultado
+            %     histogramaGestos(kGesture+1,2)=0;
+            % else
+            % end
+            % 
+            %% Inicializa el histograma vacío
+            histogramaGestos = [(0:5)' zeros(6,1)];
+
+            %% Obtener las etiquetas del gesto actual
+            if nameGestures{kGesture} == "noGesto"
+                etiquetasActuales = vectorOfLabels{idxNoGesto};
+                idxNoGesto = idxNoGesto +1;
+            else
+                etiquetasActuales = vectorOfLabels{idx};
+                idx = idx + 1;
+            end
+
+            %% Convertir a arreglo de strings (por si es categorical)
+            if iscategorical(etiquetasActuales)
+                etiquetasActuales = string(etiquetasActuales);
+            end
+
+            %% Excluir 'noGesture' y contar ocurrencias
+            etiquetasActuales = string(etiquetasActuales);
+            etiquetasSinNoGesture = etiquetasActuales(etiquetasActuales ~= "noGesture");
+
+            if isempty(etiquetasSinNoGesture)
+                % Caso 1: solo se detectó 'noGesture'
+                histogramaGestos(1,2) = 1;
+
+            else
+                % Caso 2: seleccionar el gesto más frecuente (excluyendo 'noGesture')
+                tabla = tabulate(etiquetasSinNoGesture);
+                [~, idxMax] = max(cell2mat(tabla(:,2)));
+                gestoMasFrecuente = tabla{idxMax,1};
+
+                % Buscar el índice del gesto más frecuente
+                listaGestos = ["noGesture", "fist", "open", "pinch", "waveIn", "waveOut"];
+                idxGesto = find(listaGestos == gestoMasFrecuente);
+
+                if ~isempty(idxGesto)
+                    histogramaGestos(idxGesto,2) = 1;
+
+                else
+                    warning("Gesto '%s' no reconocido en la lista de gestos.", gestoMasFrecuente);
+                end
+            end
+
+
+            
+
+            %disp("Saliendo del histo")
+            %disp(histogramaGestos)
+            
+            % Resultado para la matriz de confusión
+            resultadosPruebaPerUser=[resultadosPruebaPerUser,histogramaGestos(:,2)];
+            
+            % Valor esperado de la clasificación
+            valorReal=(zeros(numGestures,1));
+            
+            if kGesture == numGestures
+                valorReal(1, 1) = 1; % "noGesto" es clase 0  va en fila 1 del histograma
+            else
+                valorReal(kGesture+1, 1) = 1; % demás gestos del 1 al 5  fila 2 a 6
+            end
+
+            valorRealPruebaPerUser=[valorRealPruebaPerUser,valorReal];
+            
+            % Histograma completo por gesto
+            histogramaGestosPerUser(:,2)=(histogramaGestosPerUser(:,2)+histogramaGestos(:,2));
+        end
+    end
+    
+    %%-------- Creacion de responses
+    %% Aqui se reorganizan y transforma la matriz one hot encoding en una
+    %% matriz con una columna con todos los nombres de los gestos.
+    gestosReordenados = {'noGesture', 'fist', 'open', 'pinch', 'waveIn', 'waveOut' };
+    [m, N] = size(resultadosPruebaPerUser);
+    reorderedMatrix = [resultadosPruebaPerUser(:, end - numRepTest + 1 : end), ...
+                       resultadosPruebaPerUser(:, 1 : end - numRepTest)];
+    [~, gestureIdx] = max(reorderedMatrix, [], 1);
+    gestureNames = gestosReordenados(gestureIdx);
+    class = cell(N, 1);
+    for i = 1:N
+        class{i} = categorical(gestureNames(i), gestosReordenados);
+    end
+
+    %%--------- Creacion de responses
+
+
+
+
+    response.training.(nameUser).vectorOfLabels = vectorOfLabels;
+    response.training.(nameUser).class = class;
+    response.training.(nameUser).vectorOfProcessingTime=vectorOfProcessingTime;
+    response.training.(nameUser).vectorOfTimePoints=vectorOfTimePoints;
+    
+
+    % Matriz de confusión por usuario
+    figure
+    titulo = [nameUser, '. Freq: ',num2str(freqFiltro),' orden: ',num2str(ordenFiltro)];
+    plotconfusion(valorRealPruebaPerUser, resultadosPruebaPerUser, titulo);
+    
+        % Cambiar etiquetas de los ejes
+    ax = gca; % obtener eje actual
+    ax.XTickLabel = gestosReordenados;
+    ax.YTickLabel = gestosReordenados;
+
+
+    % Joining total results
+    valorRealTotal=[valorRealTotal,valorRealPruebaPerUser];
+    resultadosTotal=[resultadosTotal,resultadosPruebaPerUser];
+
+    %% dividir resultados
+    save('responsesKNN.mat', 'response');
+    fprintf("Datos guardados para %s en responsesKNN.mat\n", nameUser);
+
+end
+
+%% Al finalizar
+beep
+
+% Resultados totales
+figure
+% freqFiltro=0.4;
+% ordenFiltro=2;
+plotconfusion(valorRealTotal,resultadosTotal,['TODOS. Freq: ',num2str(freqFiltro),' orden: ',num2str(ordenFiltro)])
+% save (['resultados\ventana1seg\todos.mat'],'valorRealTotal','resultadosTotal');
+% Cambiar etiquetas de los ejes
+ax = gca; % obtener eje actual
+ax.XTickLabel = gestosReordenados;
+ax.YTickLabel = gestosReordenados;
+figure
+histogram(tClassificationTotal)
+% save ('usersData\resultadosTodos.mat','valorRealTotal','resultadosTotal','tClassificationTotal');
+save('responsesSinSplit.mat', 'response');
+
+if numRepTest == 50
+    users = fieldnames(response.training);
+    blockSize = 25;
+    totalElements = 6 * numRepTest; % 6 gestos * 50 repeticiones = 300
+
+    for u = 1:numel(users)
+        userName = users{u};
+                % Verificar si el usuario ya tiene parte de testing
+        if isfield(response, "testing") && isfield(response.testing, userName) ...
+                && isfield(response.testing.(userName), "class")
+            fprintf("Usuario %s ya tiene datos en testing. Se omite.\n", userName);
+            continue;
+        end
+
+        % Vectores originales
+        labels = response.training.(userName).vectorOfLabels;
+        classes = response.training.(userName).class;
+        procTimes = response.training.(userName).vectorOfProcessingTime;
+        timePoints = response.training.(userName).vectorOfTimePoints;
+
+        % Inicializar los vectores de training y testing vacíos
+        trainLabels = {};
+        trainClasses = {};
+        trainProcTimes = {};
+        trainTimePoints = {};
+
+        testLabels = {};
+        testClasses = {};
+        testProcTimes = {};
+        testTimePoints = {};
+
+        % Recorrer por bloques de 25 y distribuir alternadamente
+        numBlocks = totalElements / blockSize; % 300/25 = 12 bloques
+        for b = 1:numBlocks
+            idxStart = (b-1)*blockSize + 1;
+            idxEnd = b*blockSize;
+
+            % Extraer bloque actual
+            blkLabels = labels(idxStart:idxEnd);
+            blkClasses = classes(idxStart:idxEnd);
+            blkProcTimes = procTimes(idxStart:idxEnd);
+            blkTimePoints = timePoints(idxStart:idxEnd);
+
+            if mod(b,2) == 1
+                % Bloques impares van a training
+                trainLabels = [trainLabels; blkLabels];
+                trainClasses = [trainClasses; blkClasses];
+                trainProcTimes = [trainProcTimes; blkProcTimes];
+                trainTimePoints = [trainTimePoints; blkTimePoints];
+            else
+                % Bloques pares van a testing
+                testLabels = [testLabels; blkLabels];
+                testClasses = [testClasses; blkClasses];
+                testProcTimes = [testProcTimes; blkProcTimes];
+                testTimePoints = [testTimePoints; blkTimePoints];
+            end
+        end
+
+        % Asignar datos reagrupados a response.training y response.testing
+        response.training.(userName).vectorOfLabels = trainLabels;
+        response.training.(userName).class = trainClasses;
+        response.training.(userName).vectorOfProcessingTime = trainProcTimes;
+        response.training.(userName).vectorOfTimePoints = trainTimePoints;
+
+        response.testing.(userName).vectorOfLabels = testLabels;
+        response.testing.(userName).class = testClasses;
+        response.testing.(userName).vectorOfProcessingTime = testProcTimes;
+        response.testing.(userName).vectorOfTimePoints = testTimePoints;
+    end
+end
+
+
+
+save('responsesKNN.mat', 'response');
+
+
+
+
+function ventanasCategorical = ventanasNumericasACategorical(etiquetas,nameGestures)
+%Arreglo de gestos de los que se obtendra los nombres
+
+    ventanasCategorical = cell(size(etiquetas));
+    for i = 1: length(etiquetas)
+        numeroDeEtiqueta = etiquetas(i);
+        ventanasCategorical{i} = nameGestures{numeroDeEtiqueta};
+    end
+    ventanasCategorical = categorical(ventanasCategorical);
+
+end
+
+function etiquetasCorregidas = filtro_postprocesamiento(etiquetas)
+    etiquetasCorregidas = etiquetas;
+    etiquetasGestos = etiquetas(etiquetas ~= 6); % ignorar noGesto (6)
+
+    if isempty(etiquetasGestos)
+        return; % solo hay noGestos, no hacer nada
+    end
+
+    % Calcular la moda de los gestos válidos
+    modaGesto = mode(etiquetasGestos);
+    len = length(etiquetas);
+
+    for i = 1:len
+        actual = etiquetas(i);
+
+        % Caso 1: etiqueta actual es noGesto
+        if actual == 6
+            % Revisar si todo antes fue noGesto
+            if all(etiquetas(1:i-1) == 6)
+                etiquetasCorregidas(i) = 6; % mantener como noGesto
+            else
+                % Revisar siguiente etiqueta si existe
+                if i < len
+                    siguiente = etiquetas(i+1);
+                    if siguiente == 6
+                        etiquetasCorregidas(i) = 6; % mantener como noGesto
+                    else
+                        etiquetasCorregidas(i) = modaGesto; % reemplazar con la moda
+                    end
+                else
+                    etiquetasCorregidas(i) = 6; % última posición, mantener
+                end
+            end
+
+        % Caso 2: etiqueta actual es un gesto ( 6)
+        else
+            if actual == modaGesto
+                etiquetasCorregidas(i) = actual; % mantener
+            else
+                etiquetasCorregidas(i) = modaGesto; % reemplazar con la moda
+            end
+        end
+    end
+end
