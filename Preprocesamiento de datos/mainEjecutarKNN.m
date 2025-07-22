@@ -1,0 +1,73 @@
+%%La data tiene la siguiente estructura {"noGesture", "fist", "open", "pinch", "waveIn", "waveOut"}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   1-25.....26-50..51-75...76-100...101-125...126-150
+clc
+clear
+idx_seleccionados = [1:300];
+%idx_seleccionados = [ 1:10,26:35,51:60,76:85,101:110,126:135 ];
+%idx_seleccionados = [108:114, 133:139, 33:39, 58:64, 83:89, 8:14];
+% usuario = "user6";
+% version = "testingSamples";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+% version = "trainingSamples";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+% idx_seleccionados = [ 1:5,26:30,51:55,76:80,101:105,126:130 ];
+% for i = 4:4
+%      usuario = strcat('user', num2str(i));
+%      version = "testingSamples";
+%      PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+%      version = "trainingSamples";
+%      PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+% end
+
+% usuario = ["user1"];
+% rutaActual = pwd;
+% carpeta = fullfile(rutaActual, 'resultadosFormatoMat', 'Mes 0');
+% tipo = "training";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version)
+% 
+% usuario = ["user1"];
+% rutaActual = pwd;
+% carpeta = fullfile(rutaActual, 'resultadosFormatoMat', 'Mes 1');
+% tipo = "testing";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version)
+
+for i = 1:64
+    usuario = strcat('user', num2str(i));
+    rutaActual = pwd;
+    
+    carpeta = fullfile(rutaActual, 'resultadosFormatoMat', 'Mes 0');
+    tipo = "training";
+    PreparacionCompletaDeDatosKNN(usuario, carpeta, tipo)
+
+    carpeta = fullfile(rutaActual, 'resultadosFormatoMat', 'Mes 3');
+    tipo = "testing";
+    PreparacionCompletaDeDatosKNN(usuario, carpeta, tipo)
+
+end
+
+% clear
+% clc
+% idx_seleccionados = [ 1:150 ];
+% usuarios = [3,5,7,9];
+% n = length(idx_seleccionados)*length(usuarios);
+% 
+% %% Testing Part General
+% version = "testingSamples";
+% nombre_salida = "userUnion";
+% UnirDatosKNN(usuarios, idx_seleccionados, version, nombre_salida);
+% 
+% idx_seleccionados = [1:n];
+% usuario = "userDataUnion";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+% 
+% %% Training Part General
+% version = "trainingSamples";
+% nombre_salida = "userUnion";
+% UnirDatosKNN(usuarios, idx_seleccionados, version, nombre_salida);
+% 
+% idx_seleccionados = [1:n];
+% usuario = "userDataUnion";
+% PreparacionDeDatosKNN(usuario,idx_seleccionados,version);
+% 
+% clear
+% clc
